@@ -131,71 +131,35 @@ class coldStart:
         return guessTorqueActuatorExcitation 
     
     # Collocation points.
-    def getGuessActivationCol(self):            
-        guessActivationCol = pd.DataFrame(columns=self.muscles)          
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessActivationCol = guessActivationCol.append(
-                        self.guessActivation.iloc[k], ignore_index=True)
-            
-        return guessActivationCol
+    # pandas>=2.0 removed DataFrame.append; build a list and concatenate once
+    # (same pattern as hotStart below).
+    def getGuessActivationCol(self):
+        temp = [self.guessActivation.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=self.muscles).reset_index(drop=True)
     
     def getGuessForceCol(self):
-        guessForceCol = pd.DataFrame(columns=self.muscles)          
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessForceCol = guessForceCol.append(
-                        self.guessForce.iloc[k], ignore_index=True)
-            
-        return guessForceCol
+        temp = [self.guessForce.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=self.muscles).reset_index(drop=True)
     
     def getGuessForceDerivativeCol(self):
-        guessForceDerivativeCol = pd.DataFrame(columns=self.muscles)          
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessForceDerivativeCol = guessForceDerivativeCol.append(
-                        self.guessForceDerivative.iloc[k], ignore_index=True)
-            
-        return guessForceDerivativeCol
+        temp = [self.guessForceDerivative.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=self.muscles).reset_index(drop=True)
     
     def getGuessTorqueActuatorActivationCol(self, torqueActuatorJoints):
-        guessTorqueActuatorActivationCol = (
-                pd.DataFrame(columns=torqueActuatorJoints))         
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessTorqueActuatorActivationCol = (
-                        guessTorqueActuatorActivationCol.append(
-                        self.guessTorqueActuatorActivation.iloc[k], 
-                        ignore_index=True))
-            
-        return guessTorqueActuatorActivationCol        
+        temp = [self.guessTorqueActuatorActivation.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=torqueActuatorJoints).reset_index(drop=True)
     
     def getGuessPositionCol(self):
-        guessPositionCol = pd.DataFrame(columns=self.joints)          
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessPositionCol = guessPositionCol.append(
-                        self.guessPosition.iloc[k], ignore_index=True)
-        
-        return guessPositionCol
+        temp = [self.guessPosition.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=self.joints).reset_index(drop=True)
     
     def getGuessVelocityCol(self):
-        guessVelocityCol = pd.DataFrame(columns=self.joints)       
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessVelocityCol = guessVelocityCol.append(
-                        self.guessVelocity.iloc[k], ignore_index=True)
-        
-        return guessVelocityCol
+        temp = [self.guessVelocity.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=self.joints).reset_index(drop=True)
     
     def getGuessAccelerationCol(self):
-        guessAccelerationCol = pd.DataFrame(columns=self.joints)  
-        for k in range(self.N):
-            for c in range(self.d):          
-                guessAccelerationCol = guessAccelerationCol.append(
-                        self.guessAcceleration.iloc[k], ignore_index=True)
-                
-        return guessAccelerationCol
+        temp = [self.guessAcceleration.iloc[k] for k in range(self.N) for c in range(self.d)]
+        return pd.DataFrame(temp, columns=self.joints).reset_index(drop=True)
     
 # %% This class sets a hot-start guess for the optimization variables.
 # Joints positions, velocities, and accelerations are based on experimental

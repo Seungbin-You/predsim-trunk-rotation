@@ -88,3 +88,62 @@ This work is covered in three publications. Please consider citing these papers:
 	- Falisse A, et al. (2019) Rapid predictive simulations with complex musculoskeletal models suggest that diverse healthy and pathological human gaits can emerge from similar control strategies. J. R. Soc. Interface.162019040220190402. http://doi.org/10.1098/rsif.2019.0402
 3. Study about using predictive simulations to investigate the effect of mechanical assumptions:
 	- Falisse A, Afschrift M, De Groote F (2022) _Modeling toes contributes to realistic stance knee mechanics in three-dimensional predictive simulations of walking. PLoS ONE 17(1): e0256311. https://doi.org/10.1371/journal.pone.0256311
+
+# Trunk rotation study (fork of predsim_tutorial)
+
+This fork contains the code, settings and results for
+
+> You, S., & Kim, K. (2026). *Transverse-plane trunk kinematics in predictive gait
+> simulation: evaluation and a test of the angular momentum hypothesis.*
+> (submitted)
+
+It is based on [predsim_tutorial](https://github.com/antoinefalisse/predsim_tutorial)
+by Antoine Falisse (Apache-2.0). Please also cite the publications listed in the
+original README below.
+
+## Changes relative to predsim_tutorial
+
+| File | Change |
+|---|---|
+| `main.py` | Two added objective terms: `pelvisRotTerm` (squared pelvis rotation; diagnostic) and `GRMzTerm` with `GRMzMode` = `pelvis_sum` (vertical ground reaction moment about the pelvis origin, summed over both feet, squared; main text), `free` (free moment of each foot), `each`/`sum` (moment about the ground origin; origin-dependent, Supplementary S1). Unknown modes raise an error. Ground reaction moments and solver statistics are added to the saved results. |
+| `guesses.py` | `coldStart`: replaced `DataFrame.append` (removed in pandas 2) by building a list and creating the DataFrame once, as in `hotStart`. |
+| `bounds.py` | Line 128: condition changed to `self.targetSpeed > 1.33` to avoid a duplicate pandas insert at speeds above 1.33 m/s. |
+| `settings.py` | All simulations of the study (IDs = Supplementary Tables S1 and S5). See the header for the groups and for cases 116–124. |
+| `analysis/` | Post-processing scripts (below). |
+| `Results/optimaltrajectories.npy` | Solutions of all simulations. |
+
+## Reproducing a simulation
+
+```
+python main.py 138        # selected condition (w_AM = 3, generic initial guess)
+```
+
+Run one case per process (`for %c in (130 131) do python main.py %c` on Windows).
+Each case at N = 25 takes about 20 min on a desktop PC. Tested with Python 3.9,
+OpenSim 4.4 (conda-forge), CasADi 3.x, NumPy 1.x and pandas 2.x on Windows with
+MSVC. Note that `main.py` uses N = 50 by default; all cases in `settings.py` set N.
+
+**Cases 116–124** were run before the pelvis-referenced branch existed in
+`main.py` and therefore used the origin-referenced `sum` penalty, although their
+settings specify `pelvis_*`. Re-running them with this `main.py` does not
+reproduce the values in Supplementary Table S1.
+
+## Analysis scripts
+
+Run from the repository root, e.g. `python analysis/phase_harmonic.py 0 114 138`.
+
+| Script | Output (manuscript) |
+|---|---|
+| `phase_harmonic.py` | First-harmonic amplitudes and relative phases (Table 2) |
+| `check_other_planes.py` | Agreement for 16 coordinates (Table 3, Table S2) |
+| `pelvis_moment.py`, `free_moment.py` | Vertical moments about the pelvis and free moments (Table 2) |
+| `com_vs_pelvis.py` | Pelvis origin vs centre of mass, moment vs dL/dt (Methods 2.3, Results 3.3) |
+| `momentum_contribution.py` | Vertical angular momentum and segment contributions (Results 3.3, Table S4) |
+| `case_table.py` | All simulations (Tables S1, S5) |
+| `make_figures.py`, `make_fig1.py` | Figures 1–5 |
+
+## License
+
+Apache-2.0, as the original repository. Modified files carry a notice of the changes.
+
+---

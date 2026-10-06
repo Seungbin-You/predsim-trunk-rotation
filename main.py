@@ -35,8 +35,10 @@ saveOptimalTrajectories = True # Set True to save optimal trajectories
 # Select the case(s) for which you want to solve the associated problem(s) or
 # process the results. Specify the settings of the case(s) in the
 # 'settings' module.
-cases = [str(i) for i in range(0,1)]
-        
+#cases = [str(i) for i in range(0,1)]
+import sys
+cases = [sys.argv[1]] if len(sys.argv) > 1 else ['0']
+
 # Import settings.
 from settings import getSettings   
 settings = getSettings()
@@ -89,6 +91,8 @@ for case in cases:
                'jointAccelerationTerm': 50000,
                'armExcitationTerm': 1000000,
                'passiveTorqueTerm': 1000, 
+               'GRMzTerm': 0,
+                'pelvisRotTerm': 0,
                'controls': 0.001}
     if 'metabolicEnergyRateTerm' in settings[case]:
         weights['metabolicEnergyRateTerm'] = (
@@ -108,6 +112,20 @@ for case in cases:
     if 'controls' in settings[case]:
         weights['controls'] = (
             settings[case]['controls'])
+    if 'GRMzTerm' in settings[case]:
+        weights['GRMzTerm'] = settings[case]['GRMzTerm']
+    if 'pelvisRotTerm' in settings[case]:
+        weights['pelvisRotTerm'] = settings[case]['pelvisRotTerm']
+
+    # Form of the vertical-axis GRM penalty:
+    #   'sum'/'each'               : about the GROUND ORIGIN (frame-dependent; legacy)
+    #   'free'                     : true free moment T = (M.F)/(Fy+eps)
+    #   'pelvis_sum'/'pelvis_each' : about the pelvis vertical axis (origin-independent)
+    GRMzMode = 'sum'
+    if 'GRMzMode' in settings[case]:
+        GRMzMode = settings[case]['GRMzMode']
+    if GRMzMode not in ('sum', 'each', 'free', 'pelvis_sum', 'pelvis_each'):
+        raise ValueError(f'Unknown GRMzMode: {GRMzMode}')
 
     ###########################################################################
     # Numerical settings.
@@ -570,6 +588,13 @@ for case in cases:
     idxGRM_l = list(F_map['GRMs']['left'])
     idxGRM = idxGRM_r + idxGRM_l
     NGRM = len(idxGRM)
+
+    # Vertical-axis (y) components of GRMs.
+    idxGRMz_r = idxGRM_r[1]
+    idxGRMz_l = idxGRM_l[1]
+    idxPelRot = joints.index('pelvis_rotation')
+    idxPelTx = joints.index('pelvis_tx')
+    idxPelTz = joints.index('pelvis_tz')
     
     # Helper lists to map order of joints defined here and in F.
     idxGroundPelvisJointsinF = [F_map['residuals'][joint] 
@@ -1139,8 +1164,40 @@ for case in cases:
             ineq_constr5.append(diffTibiaOrs)
             diffToesOrs = ca.sumsqr(Tj[idxToesOr_r] - Tj[idxToesOr_l])
             ineq_constr6.append(diffToesOrs)
-        # End loop over collocation points.
-        
+
+            
+            ###################################################################
+            # Vertical-axis ground reaction moment.
+            if GRMzMode == 'each':
+                GRMzTerm = Tj[idxGRMz_r]**2 + Tj[idxGRMz_l]**2
+            elif GRMzMode == 'free':
+                eps = 10.0   # N, avoids division by ~0 in swing (~1.6% bias at 600 N)
+                Fr, Fl = Tj[idxGRF_r], Tj[idxGRF_l]
+                Mr, Ml = Tj[idxGRM_r], Tj[idxGRM_l]
+                Tr = (Mr[0]*Fr[0] + Mr[1]*Fr[1] + Mr[2]*Fr[2]) / (Fr[1] + eps)
+                Tl = (Ml[0]*Fl[0] + Ml[1]*Fl[1] + Ml[2]*Fl[2]) / (Fl[1] + eps)
+                GRMzTerm = Tr**2 + Tl**2
+            elif GRMzMode in ('pelvis_each', 'pelvis_sum'):
+                # My_P = My_O - z_p*Fx + x_p*Fz  (P = pelvis origin, y vertical)
+                xp = Qskj_nsc[idxPelTx, j+1]
+                zp = Qskj_nsc[idxPelTz, j+1]
+                Fr, Fl = Tj[idxGRF_r], Tj[idxGRF_l]
+                Mpr = Tj[idxGRMz_r] - zp*Fr[0] + xp*Fr[2]
+                Mpl = Tj[idxGRMz_l] - zp*Fl[0] + xp*Fl[2]
+                if GRMzMode == 'pelvis_each':
+                    GRMzTerm = Mpr**2 + Mpl**2
+                else:
+                    GRMzTerm = (Mpr + Mpl)**2
+            elif GRMzMode == 'sum':
+                GRMzTerm = (Tj[idxGRMz_r] + Tj[idxGRMz_l])**2
+            else:
+                raise ValueError(f'Unknown GRMzMode: {GRMzMode}')
+            J += weights['GRMzTerm'] * GRMzTerm * h * B[j + 1]
+
+            # Pelvis transverse rotation excursion penalty.
+            pelvisRotTerm = Qskj_nsc[idxPelRot, j+1]**2
+            J += weights['pelvisRotTerm'] * pelvisRotTerm * h * B[j + 1]
+
         #######################################################################
         # Flatten constraint vectors.
         eq_constr = ca.vertcat(*eq_constr)
@@ -1849,6 +1906,8 @@ for case in cases:
             "activationDtTerm": activationDtTerm_opt_all.full(),
             "forceDtTerm": forceDtTerm_opt_all.full(),
             "armAccelerationTerm": armAccelerationTerm_opt_all.full()}
+
+
         
         JAll_opt = (metabolicEnergyRateTerm_opt_all.full() +
                      activationTerm_opt_all.full() + 
@@ -1858,10 +1917,14 @@ for case in cases:
                      activationDtTerm_opt_all.full() + 
                      forceDtTerm_opt_all.full() + 
                      armAccelerationTerm_opt_all.full())
-        
-        if stats['success'] == True:
+
+        # objective_terms["GRMzTerm"] = (
+        #     stats['iterations']['obj'][-1] - JAll_opt[0][0])
+ 
+        if (stats['success'] == True and weights['GRMzTerm'] == 0
+                and weights['pelvisRotTerm'] == 0):
             assert np.alltrue(
-                    np.abs(JAll_opt[0][0] - stats['iterations']['obj'][-1]) 
+                    np.abs(JAll_opt[0][0] - stats['iterations']['obj'][-1])
                     <= 1e-6), "decomposition cost"
         
         # %% Write motion files for visualization in OpenSim GUI.
@@ -1934,6 +1997,10 @@ for case in cases:
                                 'arm_activations': aArm_GC,
                                 'joint_torques': torques_GC,
                                 'GRF': GRF_GC,
+                                'GRM': GRM_GC,
+                                'stats': stats['success'],
+                                'return_status': stats.get('return_status', ''),
+                                'unified_return_status': stats.get('unified_return_status', ''),
                                 'time': tgrid_GC,
                                 'norm_fiber_lengths': normFiberLength_GC,
                                 'fiber_velocity': fiberVelocity_GC,

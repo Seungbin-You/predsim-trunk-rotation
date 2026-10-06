@@ -28,3 +28,5 @@ OpenSimModel/Hamner_modified_weakerRightGluts/*
 data4PolynomialFitting*
 ID_withOsimAndIDTool*
 SetupID*
+
+!Results/optimaltrajectories.npy

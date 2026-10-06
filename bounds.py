@@ -125,7 +125,7 @@ class bounds:
                 lowerBoundsVelocity.insert(count, joint, [lb])
     
                 # Special cases.
-                if self.targetSpeed > 1.33:
+                if self.targetSpeed > 1.33 and joint == 'pelvis_tx':
                     upperBoundsVelocity['pelvis_tx'] = [4]
 
             # Scaling.
