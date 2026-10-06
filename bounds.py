@@ -1,5 +1,8 @@
 '''
     This script contains classes to set bounds to the optimization variables.
+
+    Modified by Seungbin You (2026): line 128, added the condition
+    joint == 'pelvis_tx' to avoid a duplicate insert above 1.33 m/s; see README.
 '''
 
 # %% Import packages

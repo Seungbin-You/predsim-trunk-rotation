@@ -107,7 +107,7 @@ original README below.
 |---|---|
 | `main.py` | Two added objective terms: `pelvisRotTerm` (squared pelvis rotation; diagnostic) and `GRMzTerm` with `GRMzMode` = `pelvis_sum` (vertical ground reaction moment about the pelvis origin, summed over both feet, squared; main text), `free` (free moment of each foot), `each`/`sum` (moment about the ground origin; origin-dependent, Supplementary S1). Unknown modes raise an error. Ground reaction moments and solver statistics are added to the saved results. |
 | `guesses.py` | `coldStart`: replaced `DataFrame.append` (removed in pandas 2) by building a list and creating the DataFrame once, as in `hotStart`. |
-| `bounds.py` | Line 128: condition changed to `self.targetSpeed > 1.33` to avoid a duplicate pandas insert at speeds above 1.33 m/s. |
+| `bounds.py` | Line 128: added `and joint == 'pelvis_tx'` to the condition `self.targetSpeed > 1.33`, which otherwise caused a duplicate pandas insert at speeds above 1.33 m/s. |
 | `settings.py` | All simulations of the study (IDs = Supplementary Tables S1 and S5). See the header for the groups and for cases 116–124. |
 | `analysis/` | Post-processing scripts (below). |
 | `Results/optimaltrajectories.npy` | Solutions of all simulations. |

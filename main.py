@@ -12,6 +12,10 @@
         
     Please contact me or submit a github issue if you find bugs or have
     suggestions to improve this script.
+
+    Modified by Seungbin You (2026) for the trunk rotation study: added
+    objective terms pelvisRotTerm and GRMzTerm (GRMzMode) and saved ground
+    reaction moments and solver statistics; see README.
 '''
 
 import os

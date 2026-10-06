@@ -2,6 +2,9 @@
     This script contains classes to set initial guesses to the optimization
     variables. Two classes are implemented: one for a hot-start and one for
     a cold-start.
+
+    Modified by Seungbin You (2026): coldStart builds DataFrames from lists
+    instead of DataFrame.append (removed in pandas 2); see README.
 '''
 
 # %% Import packages
