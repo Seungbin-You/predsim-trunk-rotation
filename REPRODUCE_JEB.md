@@ -52,3 +52,5 @@ python analysis\make_figures_jeb.py figures  # Figs 2-6, S1, S2
 | imposed stride time | 309, 310, 212, 311, 312, 313, 314 |
 | lateral-stability cost | 331-342, 346-349 |
 | contact stiffness x10 | 343-345, 351-358 (selected: 355, 352, 345, 353, 354); with TR+AM 344, 350, 359-368 |
+
+Note: the Windows external function (OpenSimModel/*/Model/*.dll) is the one distributed with the original implementation. If it fails to load on your system, regenerate it from the .osim model with OpenSimAD; the simulations in this study used a local rebuild of the same, unmodified model.
