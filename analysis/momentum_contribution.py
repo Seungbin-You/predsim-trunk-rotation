@@ -27,7 +27,9 @@ def Lz_zeroed(state_data, k, zero_names):
     for c in coords:
         n = c.getName()
         i = joints.index(n)
-        rot = not n.startswith('pelvis_t')
+        # rotational vs translational by motion type (the former name test
+        # 'pelvis_t*' also matched pelvis_tilt and treated it as a translation)
+        rot = c.getMotionType() != osim.Coordinate.Translational
         c.setValue(state, np.deg2rad(q[i,k]) if rot else q[i,k], False)
         raw = np.deg2rad(qd[i,k]) if rot else qd[i,k]
         c.setSpeedValue(state, 0.0 if n in zero_names else raw)

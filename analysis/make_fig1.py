@@ -16,12 +16,13 @@ from matplotlib.patches import FancyArrowPatch, Ellipse, Circle, FancyBboxPatch,
 
 OUT = 'figures'; os.makedirs(OUT, exist_ok=True)
 IMG = os.path.join(OUT, 'fig1a_model.png')
-C_BASE, C_REF, C_AM = '#2a78d6', '#eb6834', '#1baf7a'
-INK, MUTED, GRID, EXP = '#0b0b0b', '#898781', '#e1e0d9', '#52514e'
+C_BASE, C_REF, C_AM = '#0072B2', '#E69F00', '#009E73'   # Okabe-Ito, as in Figs 2-6
+C_TR, C_C, C_FM = '#56B4E9', '#CC79A7', '#6b6b6b'
+INK, MUTED, GRID, EXP = '#000000', '#6b6b6b', '#d9d9d9', '#3a3a3a'
 MM = 1 / 25.4
 plt.rcParams.update({'font.family': 'sans-serif',
-                     'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
-                     'font.size': 7, 'mathtext.fontset': 'dejavusans',
+                     'font.sans-serif': ['Arial', 'Liberation Sans', 'Helvetica', 'DejaVu Sans'],
+                     'font.size': 7, 'mathtext.default': 'regular',
                      'pdf.fonttype': 42, 'savefig.dpi': 600})
 
 
@@ -31,12 +32,16 @@ def arrow(ax, p0, p1, col=INK, lw=1.0, ms=7, ls='-', z=3):
 
 
 def title(ax, s):
-    ax.text(0.0, 1.0, s, transform=ax.transAxes, ha='left', va='bottom',
-            fontsize=7.5, fontweight='bold', color=INK)
+    # JEB: bold upper-case panel letter, plain title
+    letter, name = s.split(' ', 1)
+    ax.text(0.0, 1.0, letter, transform=ax.transAxes, ha='left', va='bottom',
+            fontsize=8, fontweight='bold', color=INK)
+    ax.annotate(name, (0.0, 1.0), xycoords='axes fraction', xytext=(9, 0), textcoords='offset points',
+                ha='left', va='bottom', fontsize=7, color=INK)
 
 
-fig = plt.figure(figsize=(190 * MM, 62 * MM))
-gs = fig.add_gridspec(1, 4, width_ratios=[0.7, 1.3, 1.4, 1.0], wspace=0.42)
+fig = plt.figure(figsize=(180 * MM, 64 * MM))
+gs = fig.add_gridspec(1, 4, width_ratios=[0.75, 1.25, 1.55, 0.95], wspace=0.5)
 
 # ── (a) model snapshot ──────────────────────────────────────────────────
 REMOVE_THIN_LINES = True   # drop 1-2 px lines (floor outline, light helper)
@@ -72,7 +77,7 @@ def autocrop(img, tol=0.08, pad=0.03, line_px=2):
     return rgb
 
 
-ax = fig.add_subplot(gs[0]); ax.axis('off'); title(ax, '(a) Model')
+ax = fig.add_subplot(gs[0]); ax.axis('off'); title(ax, 'A Model')
 iax = ax.inset_axes([0.0, 0.24, 1.0, 0.70]); iax.axis('off')
 if os.path.exists(IMG):
     img = plt.imread(IMG)
@@ -87,14 +92,14 @@ else:
     iax.add_patch(FancyBboxPatch((0.05, 0.02), 0.9, 0.96, boxstyle='round,pad=0.01',
                                  fc='#f4f3f0', ec=GRID))
     iax.text(0.5, 0.5, 'OpenSim\nsnapshot', ha='center', va='center', color=MUTED, fontsize=6.5)
-ax.text(0.5, 0.20, '31 DOF, 92 muscles\n3-DOF lumbar joint\ntorque-driven arms\n6 contact spheres/foot',
+ax.text(0.5, 0.20, '31 degrees of freedom, 92 muscles\n3-DOF lumbar joint, oblique subtalar axis\ntorque-driven arms\n6 contact spheres per foot',
         transform=ax.transAxes, ha='center', va='top', fontsize=5.6, color=EXP, linespacing=1.3)
 
 # ── (b) pelvis-referenced vertical moment, top view ─────────────────────
 # right-handed frame seen from above: x forward (right on page), y vertical (out of page),
 # z = x × y  ->  points DOWN on the page (subject's right side)
 ax = fig.add_subplot(gs[1]); ax.axis('off')
-title(ax, '(b) Moment about the pelvis')
+title(ax, 'B Vertical moment about the pelvis')
 ax.text(0.0, 0.93, 'top view', transform=ax.transAxes, fontsize=5.6, color=MUTED, va='top')
 ax.set_xlim(-0.12, 1.62); ax.set_ylim(-1.75, 0.45); ax.set_aspect('equal', adjustable='datalim')
 O = np.array([0.0, 0.0]); P = np.array([0.92, -0.38]); G = P + np.array([-0.16, 0.0])
@@ -135,37 +140,40 @@ ax.plot([G[0], G[0] - 0.12], [G[1] - 0.02, G[1] - 0.09], color=INK, lw=0.4)
 ax.text(0.75, -1.12,
         r'$M_{P,y}=M_{O,y}-z_P F_x+x_P F_z$' '\n'
         r'penalty $w_\mathrm{AM}\,(M^\mathrm{r}_{P,y}+M^\mathrm{l}_{P,y})^2$' '\n'
-        r'(about COM: $=\dot{L}_y$)',
+        r'(about the COM: $=\dot{H}_{G,y}$)',
         ha='center', va='top', fontsize=6.2, color=INK, linespacing=1.5)
 
 # ── (c) objective ───────────────────────────────────────────────────────
 ax = fig.add_subplot(gs[2]); ax.axis('off'); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-title(ax, '(c) Objective function')
+title(ax, 'C Objective and candidate factors')
 rows = [(r'$w_1\dot{E}^2$', 'metabolic rate', INK, ''),
         (r'$w_2 a^2$', 'activation', INK, ''),
         (r'$w_\mathrm{acc}\ddot{q}^2$', 'joint acceleration', C_REF, 'varied'),
         (r'$w_4 e_\mathrm{arm}^2$', 'arm excitation', INK, ''),
         (r'$w_5 \tau_\mathrm{pass}^2$', 'passive torque', INK, ''),
         (r'$w_6 u^2$', 'control derivatives', INK, ''),
-        (r'$w_\mathrm{pel} q_\mathrm{pel}^2$', 'pelvis rotation', MUTED, 'diagnostic'),
-        (r'$w_\mathrm{AM} M_{P,y}^2$', 'ang. momentum rate', C_AM, 'tested'),
-        (r'$w\,T^2$', 'free moment', MUTED, 'comparison')]
+        ('TR', r'hip rotation and subtalar springs', C_TR, ''),
+        ('C', 'human stride time imposed', C_C, ''),
+        ('AM', r'$w_\mathrm{AM} M_{P,y}^2$  (angular momentum rate)', C_AM, ''),
+        ('FM', r'$w_\mathrm{FM} T^2$  (free moment)', C_FM, '')]
 ax.text(0.0, 0.93, r'$J=\frac{1}{d}\int_{0}^{\;t_f}\,\sum(\cdot)\,\mathrm{d}t$', fontsize=7, va='top')
 ax.text(0.0, 0.77, 'nominal (Falisse et al., 2019)', fontsize=5.3, color=MUTED)
-ys = [0.70, 0.635, 0.57, 0.505, 0.44, 0.375, 0.24, 0.175, 0.11]
+ys = [0.70, 0.635, 0.57, 0.505, 0.44, 0.375, 0.24, 0.175, 0.11, 0.045]
 ax.plot([0, 1], [0.32, 0.32], color=GRID, lw=0.6)
-ax.text(0.0, 0.295, 'added', fontsize=5.3, color=MUTED, va='top')
+ax.text(0.0, 0.295, 'candidate factors', fontsize=5.3, color=MUTED, va='top')
 for (eq, desc, col, tag), y in zip(rows, ys):
     if y < 0.3: y -= 0.02
-    ax.text(0.0, y, eq, color=col, fontsize=6.3, va='center')
-    ax.text(0.30, y, desc + (f' ({tag})' if tag else ''), color=col if col != INK else EXP, fontsize=5.4, va='center')
+    ax.text(0.0, y, eq, color=col, fontsize=6.3, va='center', fontweight='bold' if y < 0.3 else 'normal')
+    ax.text(0.30 if y > 0.3 else 0.14, y, desc + (f' ({tag})' if tag else ''), color=col if col != INK else EXP, fontsize=5.4, va='center')
     if tag:
         pass
 
 # ── (d) coordination measures ───────────────────────────────────────────
 host = fig.add_subplot(gs[3]); host.axis('off')
-host.text(-0.30, 1.0, '(d) Coordination measures', transform=host.transAxes, ha='left', va='bottom',
-          fontsize=7.5, fontweight='bold', color=INK)
+host.text(-0.30, 1.0, 'D', transform=host.transAxes, ha='left', va='bottom',
+          fontsize=8, fontweight='bold', color=INK)
+host.annotate('Coordination measure', (-0.30, 1.0), xycoords='axes fraction', xytext=(9, 0),
+              textcoords='offset points', ha='left', va='bottom', fontsize=7, color=INK)
 D_BOTTOM, D_HEIGHT = 0.27, 0.69          # plot box inside the panel (fractions of panel height)
 ax = host.inset_axes([0.0, D_BOTTOM, 1.0, D_HEIGHT])
 t = np.linspace(0, 100, 400); dphi = 96
@@ -189,7 +197,7 @@ for s_ in ('top', 'right'):
 for s_ in ('left', 'bottom'):
     ax.spines[s_].set_color('#c3c2b7'); ax.spines[s_].set_linewidth(0.6)
 ax.tick_params(colors=MUTED, labelsize=5.6, width=0.6)
-host.text(-0.30, 0.09, 'thorax = pelvis + lumbar; phase and amplitude\nfrom the first harmonic (likewise lumbar–pelvis)',
+host.text(-0.30, 0.06, 'thorax = pelvis + lumbar;\nphase from the first harmonic',
           transform=host.transAxes, ha='left', va='top', fontsize=5.2, color=MUTED)
 
 fig.savefig(os.path.join(OUT, 'fig1_overview.pdf'), bbox_inches='tight')

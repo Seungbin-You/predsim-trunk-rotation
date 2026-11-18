@@ -121,6 +121,84 @@ for case in cases:
     if 'pelvisRotTerm' in settings[case]:
         weights['pelvisRotTerm'] = settings[case]['pelvisRotTerm']
 
+    # Proximal-distal gradient on the activation term (0 = original term).
+    # Muscle i is weighted by exp(lambda*d_i), normalised to mean 1, with
+    # d_i = 0 (trunk), .25 (hip), .5 (knee), .75 (ankle), 1 (toes); see below.
+    activationGradient = 0
+    if 'activationGradient' in settings[case]:
+        activationGradient = settings[case]['activationGradient']
+
+    # Tracking of human pelvis timing relative to the legs (diagnostic).
+    # Penalises (q_pel - a*dHF - b*dHF_dot*T/(2*pi))^2, dHF = hip_flexion_r -
+    # hip_flexion_l, T = stride period; a, b from the first harmonic of the
+    # experimental mean (independent of where the simulated half cycle starts).
+    weights['pelvisTrackTerm'] = 0
+    # Penalty on the lumbar axial-rotation joint torque (N m)^2, a proxy for
+    # torsional load on the lumbar spine (hypothesis: lumbar load limits
+    # angular momentum regulation by the trunk).
+    weights['lumbarTorqueTerm'] = 0
+    if 'lumbarTorqueTerm' in settings[case]:
+        weights['lumbarTorqueTerm'] = settings[case]['lumbarTorqueTerm']
+    # Free-moment penalty independent of GRMzMode (same definition as
+    # GRMzMode 'free'), so it can be combined with the angular-momentum term.
+    weights['freeMomentTerm'] = 0
+    if 'freeMomentTerm' in settings[case]:
+        weights['freeMomentTerm'] = settings[case]['freeMomentTerm']
+    # 11-10: torso (thorax+head) yaw stabilisation, (rad/s^2)^2 penalty on
+    # d2/dt2 (pelvis_rotation + lumbar_rotation) (approx. global torso yaw).
+    weights['torsoYawAccTerm'] = 0
+    if 'torsoYawAccTerm' in settings[case]:
+        weights['torsoYawAccTerm'] = settings[case]['torsoYawAccTerm']
+    # 11-17: lateral-stability (step-time) cost from the linear inverted
+    # pendulum: a lateral disturbance of the extrapolated COM grows as
+    # exp(w0*t) until the next foot placement, so the expected squared
+    # correction per step is proportional to (exp(2*w0*Ts) - 1)/(2*w0)
+    # (Ts = step time = finalTime of the half-cycle problem). Added once per
+    # step and divided by the distance travelled like the other terms.
+    weights['stepStabTerm'] = 0
+    if 'stepStabTerm' in settings[case]:
+        weights['stepStabTerm'] = settings[case]['stepStabTerm']
+    stepStabLength = 0.95
+    if 'stepStabLength' in settings[case]:
+        stepStabLength = settings[case]['stepStabLength']
+    stepStabW0 = np.sqrt(9.81 / stepStabLength)
+    if 'pelvisTrackTerm' in settings[case]:
+        weights['pelvisTrackTerm'] = settings[case]['pelvisTrackTerm']
+
+    # Linear torsional stiffness of the lumbar rotation joint (N m/rad),
+    # added like the passive mtp torque (not penalised in the objective).
+    lumbarRotStiffness = 0
+    if 'lumbarRotStiffness' in settings[case]:
+        lumbarRotStiffness = settings[case]['lumbarRotStiffness']
+
+    # Linear torsional stiffness of both hip rotation joints (N m/rad) about
+    # the anatomical neutral (0 rad), added like lumbarRotStiffness
+    # (not penalised in the objective). Proxy for capsule/ligament stiffness.
+    hipRotStiffness = 0
+    if 'hipRotStiffness' in settings[case]:
+        hipRotStiffness = settings[case]['hipRotStiffness']
+    # Optional slack (deg) for the hip rotation spring: no resistance within
+    # +-slack, linear (hipRotStiffness) beyond it, smoothed dead zone.
+    hipRotSlack = 0
+    if 'hipRotSlack' in settings[case]:
+        hipRotSlack = settings[case]['hipRotSlack']
+    # Same for both subtalar joints (N m/rad, about 0 rad).
+    subtalarStiffness = 0
+    if 'subtalarStiffness' in settings[case]:
+        subtalarStiffness = settings[case]['subtalarStiffness']
+
+    # Scaling of maximal isometric force for groups of muscles (both sides),
+    # e.g. {'glut_med': 0.5, 'glut_min': 0.5}: keys are muscle-name prefixes
+    # (side suffix removed). Muscle mass in the metabolic model scales with it.
+    muscleStrengthScale = {}
+    if 'muscleStrengthScale' in settings[case]:
+        muscleStrengthScale = settings[case]['muscleStrengthScale']
+
+    # Fixed stride time (s): final time of the half cycle = strideTime / 2.
+    fixedStrideTime = None
+    if 'fixedStrideTime' in settings[case]:
+        fixedStrideTime = settings[case]['fixedStrideTime']
+
     # Form of the vertical-axis GRM penalty:
     #   'sum'/'each'               : about the GROUND ORIGIN (frame-dependent; legacy)
     #   'free'                     : true free moment T = (M.F)/(Fy+eps)
@@ -197,6 +275,32 @@ for case in cases:
     trunkMuscles = leftTrunkMuscles + rightTrunkMuscles
     nMuscles = len(bothSidesMuscles)
     nSideMuscles = len(rightSideMuscles)
+
+    # Proximal-distal level of each muscle: most distal joint crossed, from
+    # the 'spanning' information of the polynomial approximations
+    # (e.g. tfl, sartorius, gracilis -> knee; gastrocnemii -> ankle).
+    muscleLevel = {
+        0.0:  ['ercspn', 'intobl', 'extobl'],
+        0.25: ['glut_med1', 'glut_med2', 'glut_med3', 'glut_min1',
+               'glut_min2', 'glut_min3', 'add_long', 'add_brev', 'add_mag1',
+               'add_mag2', 'add_mag3', 'pect', 'glut_max1', 'glut_max2',
+               'glut_max3', 'iliacus', 'psoas', 'quad_fem', 'gem', 'peri'],
+        0.5:  ['semimem', 'semiten', 'bifemlh', 'bifemsh', 'sar', 'tfl',
+               'grac', 'rect_fem', 'vas_med', 'vas_int', 'vas_lat'],
+        0.75: ['med_gas', 'lat_gas', 'soleus', 'tib_post', 'tib_ant',
+               'per_brev', 'per_long', 'per_tert'],
+        1.0:  ['flex_dig', 'flex_hal', 'ext_dig', 'ext_hal']}
+    levelOf = {m: lv for lv, ms in muscleLevel.items() for m in ms}
+    muscleDistality = np.array([levelOf[m[:-2]] for m in bothSidesMuscles])
+    activationWeights = np.exp(activationGradient * muscleDistality)
+    activationWeights = activationWeights / np.mean(activationWeights)
+    activationWeights = activationWeights.reshape(-1, 1)
+    activationWeightsDM = ca.DM(activationWeights)
+    print('activationGradient = {}: weight trunk {:.3f}, hip {:.3f}, '
+          'knee {:.3f}, ankle {:.3f}, toes {:.3f}'.format(
+              activationGradient, *[activationWeights[
+                  list(muscleDistality).index(lv), 0]
+                  for lv in sorted(muscleLevel)]))
     
     # Muscle-tendon parameters.
     from muscleData import getMTParameters
@@ -210,6 +314,16 @@ for case in cases:
     mtParameters = getMTParameters(
         pathModel, bothSidesMuscles, loadMTParameters, modelName,
         pathModelFolder)
+    if muscleStrengthScale:
+        mtParameters = np.array(mtParameters, dtype=float, copy=True)
+        nScaled = 0
+        for prefix, factor in muscleStrengthScale.items():
+            for i, m in enumerate(bothSidesMuscles):
+                if m[:-2] == prefix or m[:-2].startswith(prefix):
+                    mtParameters[0, i] *= factor
+                    nScaled += 1
+        print('muscleStrengthScale {}: {} muscles scaled'.format(
+            muscleStrengthScale, nScaled))
     
     # Tendon stiffness.
     from muscleData import tendonStiffness
@@ -482,6 +596,31 @@ for case in cases:
         polynomialData['r'] = polynomialData['r'].item()
         polynomialData['l'] = polynomialData['l'].item()
         polynomialData['trunk'] = polynomialData['trunk'].item()
+    # Optional muscle-geometry variant (e.g. abductor lever arm): leg
+    # polynomials loaded from tagged files, everything else unchanged.
+    polynomialTag = ''
+    if 'polynomialTag' in settings[case]:
+        polynomialTag = settings[case]['polynomialTag']
+    if polynomialTag:
+        assert loadPolynomialData, 'polynomialTag requires baseline polynomial files'
+        for side in ['r', 'l']:
+            pathTag = os.path.join(pathModelFolder, '{}_{}_polynomial_{}.json'.format(
+                modelName, polynomialTag, side))
+            assert os.path.exists(pathTag), pathTag
+            import json
+            with open(pathTag) as fTag:
+                polynomialTagData = json.load(fTag)
+            for m in polynomialTagData:
+                polynomialTagData[m]['coefficients'] = np.array(
+                    polynomialTagData[m]['coefficients'])
+                polynomialTagData[m]['spanning'] = np.array(
+                    polynomialTagData[m]['spanning'], dtype=np.int32)
+            for m in polynomialData[side]:
+                assert (list(polynomialTagData[m]['spanning']) ==
+                        list(polynomialData[side][m]['spanning'])), m
+            polynomialData[side] = polynomialTagData
+        print('polynomialTag {}: glut_med1_r coefficient[0] = {:.6f}'.format(
+            polynomialTag, polynomialData['r']['glut_med1_r']['coefficients'][0]))
     
     # The function f_polynomial takes as inputs joint positions and velocities
     # from one side (trunk included), and returns muscle-tendon lengths,
@@ -597,6 +736,30 @@ for case in cases:
     idxGRMz_r = idxGRM_r[1]
     idxGRMz_l = idxGRM_l[1]
     idxPelRot = joints.index('pelvis_rotation')
+    idxHipFlex_r = joints.index('hip_flexion_r')
+    idxHipFlex_l = joints.index('hip_flexion_l')
+    idxLumRot = joints.index('lumbar_rotation')
+    pelvisTrack_a, pelvisTrack_b = 0.0, 0.0
+    if weights['pelvisTrackTerm'] != 0:
+        expKin = np.load(os.path.join(pathOpenSimModel, 'Hamner_modified',
+                                      'experimentalData.npy'),
+                         allow_pickle=True).item()['Hamner_modified'][
+                             'kinematics']['positions']['mean']
+        expPel = expKin['pelvis_rotation'].to_numpy(dtype=float)
+        expDHF = (expKin['hip_flexion_r'] -
+                  expKin['hip_flexion_l']).to_numpy(dtype=float)
+        ratioH1 = (np.fft.rfft(expPel - expPel.mean())[1] /
+                   np.fft.rfft(expDHF - expDHF.mean())[1])
+        pelvisTrack_a, pelvisTrack_b = ratioH1.real, ratioH1.imag
+    print('pelvisTrackTerm = {}: a = {:.4f}, b = {:.4f} | '
+          'lumbarRotStiffness = {} N m/rad | lumbarTorqueTerm = {} | '
+          'hipRotStiffness = {} N m/rad | subtalarStiffness = {} N m/rad | '
+          'freeMomentTerm = {} | hipRotSlack = {} deg | '
+          'torsoYawAccTerm = {}'.format(
+              weights['pelvisTrackTerm'], pelvisTrack_a, pelvisTrack_b,
+              lumbarRotStiffness, weights['lumbarTorqueTerm'],
+              hipRotStiffness, subtalarStiffness, weights['freeMomentTerm'],
+              hipRotSlack, weights['torsoYawAccTerm']))
     idxPelTx = joints.index('pelvis_tx')
     idxPelTz = joints.index('pelvis_tz')
     
@@ -760,6 +923,47 @@ for case in cases:
     gQddsCol = guess.getGuessAccelerationCol()
     gFDt = guess.getGuessForceDerivative(scalingFDt)
     gFDtCol = guess.getGuessForceDerivativeCol()
+
+    # Optional joint locking (11-17, 'chimpanzee-like upper body' test):
+    # the listed coordinates are confined to +/- lockTolDeg around the mean of
+    # the initial guess (IK posture) at all mesh and collocation points, e.g.
+    # arms held (arm_*, elbow_*) or a rigid waist (lumbar_rotation).
+    lockJoints = []
+    if 'lockJoints' in settings[case]:
+        lockJoints = settings[case]['lockJoints']
+    lockTolDeg = 1.0
+    if 'lockTolDeg' in settings[case]:
+        lockTolDeg = settings[case]['lockTolDeg']
+    lockCenter = {}
+    for jl in lockJoints:     # centres from the unmodified guess first
+        sc = float(scalingQs.iloc[0][jl])
+        if jl in periodicOppositeJoints:
+            # antisymmetric over the half cycle (q_end = -q_start): lock at 0
+            lockCenter[jl] = 0.0
+        elif (jl[-2:] in ('_r', '_l') and
+              jl[:-2] + {'_r': '_l', '_l': '_r'}[jl[-2:]] in joints):
+            # left/right swap over the half cycle: bilateral mean (rad)
+            jo = jl[:-2] + {'_r': '_l', '_l': '_r'}[jl[-2:]]
+            lockCenter[jl] = 0.5 * (
+                np.mean(gQs[jl].to_numpy()) * sc +
+                np.mean(gQs[jo].to_numpy()) * float(scalingQs.iloc[0][jo]))
+        else:
+            lockCenter[jl] = np.mean(gQs[jl].to_numpy()) * sc
+    for jl in lockJoints:
+        ij = joints.index(jl)
+        sc = float(scalingQs.iloc[0][jl])
+        center = lockCenter[jl] / sc
+        tol = np.deg2rad(lockTolDeg) / sc
+        lbQsk[ij::nJoints] = center - tol
+        ubQsk[ij::nJoints] = center + tol
+        lbQsj[ij::nJoints] = center - tol
+        ubQsj[ij::nJoints] = center + tol
+        gQs[jl] = center
+        gQsCol[jl] = center
+        gQds[jl] = 0
+        gQdsCol[jl] = 0
+        print('lockJoints: {} fixed at {:.2f} deg (+/- {} deg)'.format(
+            jl, np.rad2deg(center * sc), lockTolDeg))
     
     # %% Optimal control problem.
     if solveProblem: 
@@ -773,10 +977,23 @@ for case in cases:
         # Static parameters.
         # Final time.
         finalTime = opti.variable()
-        opti.subject_to(opti.bounded(lbFinalTime.iloc[0]['time'],
-                                     finalTime,
-                                     ubFinalTime.iloc[0]['time']))
-        opti.set_initial(finalTime, gFinalTime)
+        if fixedStrideTime is not None:
+            # 11-09: a hard equality (finalTime == T/2) became lb == ub in
+            # solve_with_bounds, i.e. an IPOPT fixed variable; cases 181/210
+            # then spent 25-40 s per iteration inside IPOPT (vs 0.7 s).
+            # Use a single narrow band (+/-0.1%, ~0.5 ms) instead.
+            assert gaitCycleSimulation == 'half'
+            tFix = fixedStrideTime / 2
+            opti.subject_to(opti.bounded(tFix * (1 - 1e-3), finalTime,
+                                         tFix * (1 + 1e-3)))
+            opti.set_initial(finalTime, tFix)
+            print('fixedStrideTime = {} s (final time {} s, band +/-0.1%)'.format(
+                fixedStrideTime, tFix))
+        else:
+            opti.subject_to(opti.bounded(lbFinalTime.iloc[0]['time'],
+                                         finalTime,
+                                         ubFinalTime.iloc[0]['time']))
+            opti.set_initial(finalTime, gFinalTime)
         assert lbFinalTime.iloc[0]['time'] <= gFinalTime, (
             "Error lower bound final time")
         assert ubFinalTime.iloc[0]['time'] >= gFinalTime, (
@@ -905,6 +1122,21 @@ for case in cases:
             "Error lower bound joint velocity derivative")
         assert np.alltrue(ubQddsj >= ca.vec(gQddsCol.to_numpy().T).full()), (
             "Error upper bound joint velocity derivative")
+
+        # Optional warm start from the solution of another case (same N and
+        # problem structure, so opti.x has the same ordering as w_opt.npy).
+        if 'initialGuessFromCase' in settings[case]:
+            pathW0 = os.path.join(
+                pathTrajectories,
+                'Case_' + str(settings[case]['initialGuessFromCase']),
+                'w_opt.npy')
+            w0 = np.load(pathW0).flatten()
+            assert w0.shape[0] == opti.x.shape[0], (
+                'Warm start size mismatch: {} vs {}'.format(
+                    w0.shape[0], opti.x.shape[0]))
+            opti.set_initial(opti.x, w0)
+            print('Initial guess: solution of case {} ({} variables)'.format(
+                settings[case]['initialGuessFromCase'], w0.shape[0]))
             
         ####################################################################### 
         # Parallel formulation - initialize variables.
@@ -1065,7 +1297,8 @@ for case in cases:
             # Cost function.
             metEnergyRateTerm = (f_NMusclesSum2(metabolicEnergyRatej) / 
                                        bodyMass)
-            activationTerm = f_NMusclesSum2(akj[:, j+1])
+            activationTerm = (ca.sum1(activationWeightsDM * akj[:, j+1]**2)
+                              / nMuscles)
             armExcitationTerm = f_nArmJointsSum2(eArmk)             
             jointAccelerationTerm = (
                     f_nNoArmJointsSum2(Qddsj[idxNoArmJoints, j]))                
@@ -1122,8 +1355,28 @@ for case in cases:
             for joint in muscleDrivenJoints:                
                 Fj_joint = Fj[momentArmIndices[joint]]
                 mTj_joint = ca.sum1(dMj[joint]*Fj_joint) 
+                passiveT_joint = passiveTorque_j[joint]
+                if joint == 'lumbar_rotation' and lumbarRotStiffness != 0:
+                    passiveT_joint = (passiveT_joint - lumbarRotStiffness *
+                                      Qskj_nsc[idxLumRot, j+1])
+                if (joint in ('hip_rotation_r', 'hip_rotation_l') and
+                        hipRotStiffness != 0):
+                    qHR = Qskj_nsc[joints.index(joint), j+1]
+                    if hipRotSlack > 0:
+                        slk = np.deg2rad(hipRotSlack)
+                        dSm = 0.01  # rad, smoothing of the dead-zone corners
+                        sRelu = lambda x: 0.5 * (x + ca.sqrt(x**2 + dSm**2))
+                        passiveT_joint = (passiveT_joint - hipRotStiffness *
+                                          (sRelu(qHR - slk) - sRelu(-qHR - slk)))
+                    else:
+                        passiveT_joint = (passiveT_joint -
+                                          hipRotStiffness * qHR)
+                if (joint in ('subtalar_angle_r', 'subtalar_angle_l') and
+                        subtalarStiffness != 0):
+                    passiveT_joint = (passiveT_joint - subtalarStiffness *
+                                      Qskj_nsc[joints.index(joint), j+1])
                 diffTj_joint = f_diffTorques(Tj[F_map['residuals'][joint]], 
-                                             mTj_joint, passiveTorque_j[joint])
+                                             mTj_joint, passiveT_joint)
                 eq_constr.append(diffTj_joint)
             
             # Torque-driven joint torques (arm joints)
@@ -1198,9 +1451,45 @@ for case in cases:
                 raise ValueError(f'Unknown GRMzMode: {GRMzMode}')
             J += weights['GRMzTerm'] * GRMzTerm * h * B[j + 1]
 
+            # Separate free-moment penalty (foot-ground twisting).
+            if weights['freeMomentTerm'] != 0:
+                epsFM = 10.0
+                FrFM, FlFM = Tj[idxGRF_r], Tj[idxGRF_l]
+                MrFM, MlFM = Tj[idxGRM_r], Tj[idxGRM_l]
+                TrFM = ((MrFM[0]*FrFM[0] + MrFM[1]*FrFM[1] + MrFM[2]*FrFM[2])
+                        / (FrFM[1] + epsFM))
+                TlFM = ((MlFM[0]*FlFM[0] + MlFM[1]*FlFM[1] + MlFM[2]*FlFM[2])
+                        / (FlFM[1] + epsFM))
+                J += (weights['freeMomentTerm'] * (TrFM**2 + TlFM**2) *
+                      h * B[j + 1])
+
+            # Torso yaw acceleration penalty (head/torso stabilisation).
+            if weights['torsoYawAccTerm'] != 0:
+                torsoYawAcc = (Qddsj_nsc[idxPelRot, j] +
+                               Qddsj_nsc[idxLumRot, j])
+                J += (weights['torsoYawAccTerm'] * torsoYawAcc**2 *
+                      h * B[j + 1])
+
             # Pelvis transverse rotation excursion penalty.
             pelvisRotTerm = Qskj_nsc[idxPelRot, j+1]**2
             J += weights['pelvisRotTerm'] * pelvisRotTerm * h * B[j + 1]
+
+            # Pelvis timing tracking (stride period = 2*tf for half cycle).
+            if weights['pelvisTrackTerm'] != 0:
+                dHF = (Qskj_nsc[idxHipFlex_r, j+1] -
+                       Qskj_nsc[idxHipFlex_l, j+1])
+                dHFdot = (Qdskj_nsc[idxHipFlex_r, j+1] -
+                          Qdskj_nsc[idxHipFlex_l, j+1])
+                pelTarget = (pelvisTrack_a * dHF +
+                             pelvisTrack_b * dHFdot * tf / np.pi)
+                J += (weights['pelvisTrackTerm'] *
+                      (Qskj_nsc[idxPelRot, j+1] - pelTarget)**2 * h * B[j + 1])
+
+            # Lumbar axial-rotation torque penalty (inverse-dynamics torque).
+            if weights['lumbarTorqueTerm'] != 0:
+                lumRotTorque = Tj[F_map['residuals']['lumbar_rotation']]
+                J += (weights['lumbarTorqueTerm'] * lumRotTorque**2 *
+                      h * B[j + 1])
 
         #######################################################################
         # Flatten constraint vectors.
@@ -1293,6 +1582,13 @@ for case in cases:
         #######################################################################
         # Scale cost function with distance traveled.
         Jall_sc = ca.sum2(Jall)/distTraveled  
+        if weights['stepStabTerm'] != 0:
+            assert gaitCycleSimulation == 'half', 'stepStabTerm: half cycle only'
+            Jall_sc = Jall_sc + (weights['stepStabTerm'] *
+                                 (ca.exp(2 * stepStabW0 * finalTime) - 1) /
+                                 (2 * stepStabW0) / distTraveled)
+            print('stepStabTerm = {} | l = {} m | w0 = {:.3f} rad/s'.format(
+                weights['stepStabTerm'], stepStabLength, stepStabW0))
         
         #######################################################################
         # Create NLP solver.
@@ -1861,7 +2157,9 @@ for case in cases:
                 
                 ###############################################################
                 # Cost function terms.
-                activationTerm_opt = f_NMusclesSum2(akj_opt[:, j+1])  
+                activationTerm_opt = (
+                    ca.sum1(activationWeightsDM * akj_opt[:, j+1]**2)
+                    / nMuscles)
                 jointAccelerationTerm_opt = f_nNoArmJointsSum2(
                     Qddsj_opt[idxNoArmJoints, j])          
                 passiveTorqueTerm_opt = f_nPassiveTorqueJointsSum2(
@@ -1910,6 +2208,11 @@ for case in cases:
             "activationDtTerm": activationDtTerm_opt_all.full(),
             "forceDtTerm": forceDtTerm_opt_all.full(),
             "armAccelerationTerm": armAccelerationTerm_opt_all.full()}
+        if weights['stepStabTerm'] != 0:
+            objective_terms["stepStabTerm"] = np.array([[float(
+                weights['stepStabTerm'] *
+                (np.exp(2 * stepStabW0 * float(finalTime_opt)) - 1) /
+                (2 * stepStabW0) / float(distTraveled_opt))]])
 
 
         
@@ -1926,7 +2229,12 @@ for case in cases:
         #     stats['iterations']['obj'][-1] - JAll_opt[0][0])
  
         if (stats['success'] == True and weights['GRMzTerm'] == 0
-                and weights['pelvisRotTerm'] == 0):
+                and weights['pelvisRotTerm'] == 0
+                and weights['pelvisTrackTerm'] == 0
+                and weights['lumbarTorqueTerm'] == 0
+                and weights['freeMomentTerm'] == 0
+                and weights['torsoYawAccTerm'] == 0
+                and weights['stepStabTerm'] == 0):
             assert np.alltrue(
                     np.abs(JAll_opt[0][0] - stats['iterations']['obj'][-1])
                     <= 1e-6), "decomposition cost"
