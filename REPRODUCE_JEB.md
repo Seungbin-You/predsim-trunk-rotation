@@ -19,6 +19,8 @@ Results accumulate in `Results/optimaltrajectories.npy`. `analysis/export_cases.
 | `freeMomentTerm` | cost on the free moment of each foot (factor FM) |
 | `pelvisRotTerm` | diagnostic penalty on pelvic rotation (energetic cost curves only) |
 | `jointAccelerationTerm` | joint-acceleration weight w_acc (nominal 50 000) |
+| `armExcitationTerm` | weight w_4 of the arm actuator excitations (nominal 1e6; arm-matched model 2e6) |
+| `lumbarRotStiffness` | linear spring (N m rad-1) on lumbar rotation (robustness test) |
 | `lockJoints`, `lockTolDeg` | bound coordinates to +-tol around the guess mean |
 | `polynomialTag` | load refitted muscle-geometry polynomials (abductor moment arm; analysis/glut_poly.py) |
 | `stepStabTerm`, `stepStabLength` | lateral-stability (step-time) cost (Supplementary S1) |
@@ -27,11 +29,13 @@ Results accumulate in `Results/optimaltrajectories.npy`. `analysis/export_cases.
 
 Bug fixes to the original code: bounds.py (pandas duplicate insert above 1.33 m s-1), guesses.py (DataFrame.append removed in pandas 2).
 
-## Figures
+## Figures and supplementary tables
 ```
 python analysis\make_fig1.py                 # Fig. 1 (needs figures/fig1a_model.png)
 python analysis\make_figures_jeb.py figures  # Figs 2-6, S1, S2
+python analysis\make_tables_jeb.py           # Tables S10-S13 and additions to Table S4 (analysis/out)
 ```
+`Results/optimaltrajectories.npy` contains every solution listed below, so figures and tables can be regenerated without re-running the simulations.
 
 ## Case map (main text)
 | content | cases |
@@ -52,5 +56,26 @@ python analysis\make_figures_jeb.py figures  # Figs 2-6, S1, S2
 | imposed stride time | 309, 310, 212, 311, 312, 313, 314 |
 | lateral-stability cost | 331-342, 346-349 |
 | contact stiffness x10 | 343-345, 351-358 (selected: 355, 352, 345, 353, 354); with TR+AM 344, 350, 359-368 |
+| TR+C without AM, speeds (Fig. 6) | 383, 384, 214, 385, 386 |
+| TR+C+AM at 1.52 m s-1 (Figs 4D, 6) | 391 |
+| C only, speeds | 252, 253, 212, 254, 255 |
+| C+AM / TR+AM at 1.0 and 1.45 m s-1 | 387, 388, 389, 390 |
+| speed diagnostics, 1.6 m s-1 (Table S10) | C from 296: 372; stride-time sweep: 372, 378, 373, 374; scaled w_acc: 375, 376, 377 (1.45); other guess: 321; scaled w_AM: 379-382 |
+| TR at one joint; lumbar spring (Table S11) | 392 (hip), 393 (subtalar); 397 (20), 398 (50 N m rad-1) |
+| arm actuator weight (Table 1, Table S11) | TR+C+AM: 394 (x0.1), 302 (x1), 399 (x2), 400 (x4), 395/401/402 (x10, three guesses); TR+C: 396 (x0.1), 403 (x10) |
+
+## Case map (arm-matched model, w_4 x2; Table 2, Tables S12-S13)
+| content | cases |
+|---|---|
+| factorial TR / C / AM (1.33) | 404 (none), 405 (TR), 406 (C), 407 (TR+C), 408 (AM), 409 (TR+AM), 410 (C+AM), 399 (TR+C+AM) |
+| AM weight 0/1/3/10/30 (TR+C) | 407, 429, 399, 430, 431 |
+| free moment: TR+FM+C+AM, TR+FM+C | 432, 433 |
+| cost of limiting pelvic rotation (w_pel 0/1000/3000/10 000/30 000) | 404, 434, 435, 436, 437 |
+| effort-minimising, 0.8/1.0/1.33/1.45/1.6 | 411, 412, 404, 413, 414 |
+| TR+C, 0.8/1.0/1.33/1.45/1.6 | 425, 426, 407, 427, 428 |
+| C+AM, 0.8/1.0/1.33/1.45/1.52/1.6 | 420, 421, 410, 422, 423, 424 |
+| TR+C+AM, 0.8/1.0/1.33/1.45/1.52/1.6 | 415, 416, 399, 417, 418, 419 |
+
+Cases not listed are exploratory runs from earlier stages of the project and are kept in `settings.py` for completeness; they are not used in the manuscript.
 
 Note: the Windows external function (OpenSimModel/*/Model/*.dll) is the one distributed with the original implementation. If it fails to load on your system, regenerate it from the .osim model with OpenSimAD; the simulations in this study used a local rebuild of the same, unmodified model.

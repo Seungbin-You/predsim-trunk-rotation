@@ -41,7 +41,7 @@ def title(ax, s):
 
 
 fig = plt.figure(figsize=(180 * MM, 64 * MM))
-gs = fig.add_gridspec(1, 4, width_ratios=[0.75, 1.25, 1.55, 0.95], wspace=0.5)
+gs = fig.add_gridspec(1, 4, width_ratios=[0.62, 1.55, 1.45, 0.92], wspace=0.42)
 
 # ── (a) model snapshot ──────────────────────────────────────────────────
 REMOVE_THIN_LINES = True   # drop 1-2 px lines (floor outline, light helper)
@@ -98,66 +98,69 @@ ax.text(0.5, 0.20, '31 degrees of freedom, 92 muscles\n3-DOF lumbar joint, obliq
 # ── (b) pelvis-referenced vertical moment, top view ─────────────────────
 # right-handed frame seen from above: x forward (right on page), y vertical (out of page),
 # z = x × y  ->  points DOWN on the page (subject's right side)
-ax = fig.add_subplot(gs[1]); ax.axis('off')
-title(ax, 'B Vertical moment about the pelvis')
-ax.text(0.0, 0.93, 'top view', transform=ax.transAxes, fontsize=5.6, color=MUTED, va='top')
-ax.set_xlim(-0.12, 1.62); ax.set_ylim(-1.75, 0.45); ax.set_aspect('equal', adjustable='datalim')
-O = np.array([0.0, 0.0]); P = np.array([0.92, -0.38]); G = P + np.array([-0.16, 0.0])
-cop = np.array([1.30, -0.86])
-# axes at O
-arrow(ax, O, O + [0.22, 0], col=MUTED, lw=0.8, ms=5)
-ax.text(O[0] + 0.24, O[1], '$x$ fwd', va='center', color=MUTED, fontsize=5.6)
-arrow(ax, O, O + [0, -0.22], col=MUTED, lw=0.8, ms=5)
-ax.text(O[0] + 0.03, O[1] - 0.24, '$z$ right', ha='left', va='top', color=MUTED, fontsize=5.6)
-ax.add_patch(Circle(O, 0.035, fc='white', ec=MUTED, lw=0.7, zorder=4))
-ax.plot(*O, 'o', color=MUTED, ms=1.4, zorder=5)
-ax.text(O[0] - 0.05, O[1] + 0.03, '$O$', ha='right', va='bottom', color=MUTED, fontsize=6.5)
-ax.text(O[0] - 0.05, O[1] - 0.05, '$y$ up', ha='right', va='top', color=MUTED, fontsize=5.0)
+host_b = fig.add_subplot(gs[1]); host_b.axis('off')
+title(host_b, 'B Vertical moment about the pelvis')
+ax = host_b.inset_axes([0.0, 0.0, 1.0, 0.97]); ax.axis('off')
+ax.set_xlim(-0.15, 1.85); ax.set_ylim(-2.15, 0.30); ax.set_aspect('equal', adjustable='box')
+ax.text(-0.15, 0.28, 'top view (y vertical, out of the page)', fontsize=5.6, color=MUTED, va='top')
+O = np.array([0.0, -0.10]); P = np.array([0.95, -0.55]); G = P + np.array([-0.20, 0.0])
+cop = np.array([1.38, -1.08])
+# ground frame at O
+arrow(ax, O, O + [0.26, 0], col=MUTED, lw=0.8, ms=5)
+ax.text(O[0] + 0.29, O[1], 'x (forward)', va='center', color=MUTED, fontsize=5.6)
+arrow(ax, O, O + [0, -0.26], col=MUTED, lw=0.8, ms=5)
+ax.text(O[0] + 0.04, O[1] - 0.27, 'z (right)', ha='left', va='top', color=MUTED, fontsize=5.6)
+ax.add_patch(Circle(O, 0.045, fc='white', ec=MUTED, lw=0.7, zorder=4))
+ax.plot(*O, 'o', color=MUTED, ms=1.6, zorder=5)
+ax.text(O[0] - 0.07, O[1] + 0.02, 'O', ha='right', va='center', color=MUTED, fontsize=6.8)
 # r_P
-arrow(ax, O + [0.04, -0.01], P + [-0.03, 0.008], col=MUTED, lw=0.6, ls=(0, (3, 2)), ms=5)
-ax.text(0.52, -0.27, r'$\mathbf{r}_P$', color=MUTED, fontsize=6.3, va='top', ha='left')
-# stance (right) foot with GRF components
-ax.add_patch(Ellipse(cop + [0.02, 0], 0.34, 0.12, fc='#f4f3f0', ec=MUTED, lw=0.6))
-ax.text(cop[0] + 0.02, cop[1] - 0.09, 'stance foot', fontsize=5.4, color=EXP, ha='center', va='top')
-ax.plot(*cop, 'o', color=INK, ms=2.2, zorder=5)
-arrow(ax, cop, cop + [-0.24, 0], col=EXP, lw=1.2, ms=6)
-ax.text(cop[0] - 0.26, cop[1], '$F_x$', color=EXP, ha='right', va='center', fontsize=6.3)
-arrow(ax, cop, cop + [0, 0.18], col=EXP, lw=1.2, ms=6)
-ax.text(cop[0] + 0.03, cop[1] + 0.15, '$F_z$', color=EXP, fontsize=6.3, va='center')
+arrow(ax, O + [0.05, -0.02], P + [-0.04, 0.02], col=MUTED, lw=0.6, ls=(0, (3, 2)), ms=5)
+ax.text(0.46, -0.27, r'$\mathbf{r}_P$', color=MUTED, fontsize=6.6, va='bottom', ha='center')
 # moment about P
-ax.add_patch(Arc(P, 0.30, 0.30, theta1=200, theta2=500, color=C_AM, lw=1.3, zorder=3))
+ax.add_patch(Arc(P, 0.34, 0.34, theta1=200, theta2=500, color=C_AM, lw=1.4, zorder=3))
 a1 = np.radians(500); a0 = np.radians(485)
-arrow(ax, P + 0.15 * np.array([np.cos(a0), np.sin(a0)]), P + 0.15 * np.array([np.cos(a1), np.sin(a1)]),
-      col=C_AM, lw=1.3, ms=6)
-ax.text(P[0] + 0.19, P[1] + 0.06, '$M_{P,y}$', color=C_AM, fontsize=7, va='center')
-ax.add_patch(Circle(P, 0.025, fc=C_AM, ec='white', lw=0.8, zorder=4))
-ax.text(P[0], P[1] + 0.20, 'pelvis origin $P$', fontsize=5.6, color=INK, ha='center', va='bottom')
+arrow(ax, P + 0.17 * np.array([np.cos(a0), np.sin(a0)]), P + 0.17 * np.array([np.cos(a1), np.sin(a1)]),
+      col=C_AM, lw=1.4, ms=6)
+ax.add_patch(Circle(P, 0.03, fc=C_AM, ec='white', lw=0.8, zorder=4))
+ax.text(P[0] + 0.22, P[1] + 0.10, 'M$_{P,y}$', color=C_AM, fontsize=7.2, va='center')
+ax.text(P[0] + 0.02, P[1] + 0.24, 'pelvis origin P', fontsize=5.8, color=INK, ha='center', va='bottom')
 # COM
-ax.add_patch(Circle(G, 0.018, fc='white', ec=INK, lw=0.7, zorder=4))
-ax.text(G[0] - 0.18, G[1] - 0.10, 'COM\n(~7 cm behind $P$)', fontsize=5.2, ha='center', va='top',
-        color=INK, linespacing=1.2)
-ax.plot([G[0], G[0] - 0.12], [G[1] - 0.02, G[1] - 0.09], color=INK, lw=0.4)
-ax.text(0.75, -1.12,
-        r'$M_{P,y}=M_{O,y}-z_P F_x+x_P F_z$' '\n'
-        r'penalty $w_\mathrm{AM}\,(M^\mathrm{r}_{P,y}+M^\mathrm{l}_{P,y})^2$' '\n'
-        r'(about the COM: $=\dot{H}_{G,y}$)',
-        ha='center', va='top', fontsize=6.2, color=INK, linespacing=1.5)
+ax.add_patch(Circle(G, 0.022, fc='white', ec=INK, lw=0.7, zorder=4))
+ax.plot([G[0], G[0] - 0.10], [G[1] - 0.03, G[1] - 0.16], color=INK, lw=0.4)
+ax.text(G[0] - 0.12, G[1] - 0.17, 'COM\n(about 7 cm posterior to P)', fontsize=5.4, ha='center', va='top',
+        color=INK, linespacing=1.15)
+# stance foot and ground reaction force components
+ax.add_patch(Ellipse(cop + [0.02, 0], 0.40, 0.14, fc='#f2f2f2', ec=MUTED, lw=0.6))
+ax.plot(*cop, 'o', color=INK, ms=2.4, zorder=5)
+arrow(ax, cop, cop + [-0.28, 0], col=EXP, lw=1.2, ms=6)
+ax.text(cop[0] - 0.31, cop[1], 'F$_x$', color=EXP, ha='right', va='center', fontsize=6.4)
+arrow(ax, cop, cop + [0, 0.22], col=EXP, lw=1.2, ms=6)
+ax.text(cop[0] + 0.04, cop[1] + 0.20, 'F$_z$', color=EXP, fontsize=6.4, va='center')
+ax.text(cop[0] + 0.02, cop[1] - 0.10, 'stance foot', fontsize=5.6, color=EXP, ha='center', va='top')
+# equations, separated from the drawing
+ax.plot([-0.15, 1.85], [-1.40, -1.40], color=GRID, lw=0.6)
+ax.text(0.85, -1.50, r'M$_{P,y}$ = $\Sigma_\mathrm{feet}$ (M$_{O,y}$ $-$ z$_P$F$_x$ + x$_P$F$_z$)',
+        ha='center', va='top', fontsize=6.4, color=INK)
+ax.text(0.85, -1.74, r'cost: w$_\mathrm{AM}$ (M$_{P,y}$)$^2$',
+        ha='center', va='top', fontsize=6.4, color=INK)
+ax.text(0.85, -1.98, r'(about the COM: dH$_{G,y}$/dt)',
+        ha='center', va='top', fontsize=5.6, color=MUTED)
 
 # ── (c) objective ───────────────────────────────────────────────────────
 ax = fig.add_subplot(gs[2]); ax.axis('off'); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-title(ax, 'C Objective and candidate factors')
-rows = [(r'$w_1\dot{E}^2$', 'metabolic rate', INK, ''),
-        (r'$w_2 a^2$', 'activation', INK, ''),
-        (r'$w_\mathrm{acc}\ddot{q}^2$', 'joint acceleration', C_REF, 'varied'),
-        (r'$w_4 e_\mathrm{arm}^2$', 'arm excitation', INK, ''),
-        (r'$w_5 \tau_\mathrm{pass}^2$', 'passive torque', INK, ''),
-        (r'$w_6 u^2$', 'control derivatives', INK, ''),
+title(ax, 'C Objective and factors')
+rows = [('w$_1$ $\dot{E}$', 'metabolic rate', INK, ''),
+        ('w$_2$ a', 'activation', INK, ''),
+        ('w$_\mathrm{acc}$ $\ddot{q}$', 'joint acceleration', C_REF, 'varied'),
+        ('w$_4$ e$_\mathrm{arm}$', 'arm excitation', INK, ''),
+        (r'w$_5$ $\tau_\mathrm{pass}$', 'passive torque', INK, ''),
+        ('w$_6$ u', 'control derivatives', INK, ''),
         ('TR', r'hip rotation and subtalar springs', C_TR, ''),
         ('C', 'human stride time imposed', C_C, ''),
-        ('AM', r'$w_\mathrm{AM} M_{P,y}^2$  (angular momentum rate)', C_AM, ''),
-        ('FM', r'$w_\mathrm{FM} T^2$  (free moment)', C_FM, '')]
-ax.text(0.0, 0.93, r'$J=\frac{1}{d}\int_{0}^{\;t_f}\,\sum(\cdot)\,\mathrm{d}t$', fontsize=7, va='top')
-ax.text(0.0, 0.77, 'nominal (Falisse et al., 2019)', fontsize=5.3, color=MUTED)
+        ('AM', r'w$_\mathrm{AM}$ (M$_{P,y}$)$^2$, angular momentum rate', C_AM, ''),
+        ('FM', r'w$_\mathrm{FM}$ T$^2$, free moment', C_FM, '')]
+ax.text(0.0, 0.93, r'J = (1/d) $\int$ $\Sigma_i$ w$_i$ (x$_i$)$^2$ dt', fontsize=7, va='top')
+ax.text(0.0, 0.765, 'nominal (Falisse et al., 2019)', fontsize=5.3, color=MUTED)
 ys = [0.70, 0.635, 0.57, 0.505, 0.44, 0.375, 0.24, 0.175, 0.11, 0.045]
 ax.plot([0, 1], [0.32, 0.32], color=GRID, lw=0.6)
 ax.text(0.0, 0.295, 'candidate factors', fontsize=5.3, color=MUTED, va='top')

@@ -314,6 +314,10 @@ SP_BASE = ['294', '24', '0', '292', '296']          # effort-minimising solution
 SP_TCA = ['316', '318', '302', '320', '322']        # TR + C + AM (main condition)
 SP_TCFA = ['239', '240', '216', '245', '246']       # TR + FM + C + AM
 SP_TFC = ['236', '237', '211', '244', '301']        # TR + FM + C (earlier factorial, Supplementary)
+SP_TC = ['383', '384', '214', '385', '386']         # TR + C without AM (cross-speed check)
+SPEEDS6 = [0.8, 1.0, 1.33, 1.45, 1.52, 1.6]
+SP_TCA6 = ['316', '318', '302', '320', '391', '322']  # TR + C + AM incl. 1.52 m/s
+CTC = '#E69F00'                                     # TR + C colour (orange)
 FM_HUMAN = (3.4, 1.4)                               # peak free moment, Almosnino et al. (2009)
 CT = '#009E73'                                      # TR + C + AM colour (= CB)
 
@@ -362,16 +366,16 @@ def fig4():
     letter(ax, 'C', dx=-0.1)
     # D is a free-moment cost needed once AM is present? (five speeds)
     ax = fig.add_subplot(gs[1, 1])
-    for cs, col, mk, ls, lab in [(SP_BASE, C0, 'o', '-', 'no factor'),
-                                 (SP_TCFA, CC, 's', ':', 'TR+FM+C+AM'),
-                                 (SP_TCA, CT, 'D', '--', 'TR+C+AM')]:
-        pts = [(s_, M(c)['pel']) for s_, c in zip(SPEEDS, cs) if c in d]
+    for cs, sp, col, mk, ls, lab in [(SP_BASE, SPEEDS, C0, 'o', '-', 'no factor'),
+                                     (SP_TCFA, SPEEDS, CC, 's', ':', 'TR+FM+C+AM'),
+                                     (SP_TCA6, SPEEDS6, CT, 'D', '--', 'TR+C+AM')]:
+        pts = [(s_, M(c)['pel']) for s_, c in zip(sp, cs) if c in d]
         ax.plot(*zip(*pts), color=col, marker=mk, ls=ls, label=lab)
     ax.axhspan(*HUMAN_RANGE, color=BAND, lw=0, zorder=0)
-    ax.plot(1.33, mE['pel'], marker='*', ms=8, color=INK, ls='none')
+    ax.plot(1.33, mE['pel'], marker='*', ms=8, color=INK, ls='none', label='human (this data set)')
     ax.set_xlabel(r'Walking speed (m s$^{-1}$)'); ax.set_ylabel('Pelvis range of motion (deg)')
-    ax.set_xticks([0.8, 1.0, 1.2, 1.4, 1.6]); ax.set_ylim(0, 23)
-    ax.legend(loc='upper left', fontsize=5.8)
+    ax.set_xticks([0.8, 1.0, 1.2, 1.4, 1.6]); ax.set_ylim(0, 30)
+    ax.legend(loc='upper left', fontsize=5.8, ncol=2, columnspacing=1.0)
     letter(ax, 'D', dx=-0.12)
     handles = [plt.Rectangle((0, 0), 1, 1, color='#9db8cf'), plt.Rectangle((0, 0), 1, 1, color='#7fbfa9', hatch='////', ec='white', lw=0),
                plt.Rectangle((0, 0), 1, 1, color=BAND), Line2D([], [], color=INK, lw=0.8, ls=(0, (3, 2)))]
@@ -420,10 +424,10 @@ def fig5():
     exp_line(ax, mE['tp'])
     ax.set_xscale('log'); ax.set_xticks([0.3, 1, 3, 10, 30]); ax.set_xticklabels(['0', '1', '3', '10', '30'])
     ax.set_xlabel(r'$w_\mathrm{AM}$'); ax.set_ylabel('Thorax–pelvis phase (deg)')
-    ax.set_ylim(0, 185); ax.set_yticks([0, 45, 90, 135, 180])
+    ax.set_ylim(-22, 185); ax.set_yticks([0, 45, 90, 135, 180])
     for x_, (c, _) in zip(xs, dd):   # pelvis ROM as labels (one y-axis only)
         ax.annotate('%.1f°' % M(c)['pel'], (x_, M(c)['tp']),
-                    xytext=(7, -3) if M(c)['tp'] < 60 else (-4, 7), ha='left' if M(c)['tp'] < 60 else 'right',
+                    xytext=((8, -3) if M(c)['tp'] < 10 else (7, -3)) if M(c)['tp'] < 60 else (-4, 7), ha='left' if M(c)['tp'] < 60 else 'right',
                     textcoords='offset points', fontsize=5.3, color=MUTED)
     ax.set_title('Varying AM weight (TR+C)', loc='left')
     ax.minorticks_off()
@@ -433,7 +437,8 @@ def fig5():
     for c, w in [(c, w) for c, w in WACC_TCA if c in d]:
         m = M(c)
         ax.plot(m['pel'], m['tp'], marker='D', color=CT, ls='none')
-        ax.annotate(r'$w_\mathrm{acc}$ = %gk' % (w / 1000), (m['pel'], m['tp']), xytext=(4, 3),
+        ax.annotate(r'$w_\mathrm{acc}$ = %gk' % (w / 1000), (m['pel'], m['tp']),
+                    xytext=(4, 3) if w >= 50000 else (-5, -9), ha='left' if w >= 50000 else 'right',
                     textcoords='offset points', fontsize=5.5)
     ax.plot(mE['pel'], mE['tp'], marker='*', ms=8, color=INK, ls='none')
     ax.annotate('human', (mE['pel'], mE['tp']), xytext=(-4, -10), ha='right', textcoords='offset points', fontsize=6)
@@ -464,10 +469,13 @@ SPEED_CURVES = [  # pelvisRotTerm continuation sweeps per speed (w_pel 0 ... 10 
 def fig6():
     fig = plt.figure(figsize=(W2, 118 * MM))
     gs = fig.add_gridspec(2, 2, hspace=0.55, wspace=0.4)
-    series = [(SP_BASE, C0, 'o', '-', 'none (effort-minimising)'), (SP_TCA, CT, 'D', '--', 'TR+C+AM')]
+    series = [((SP_BASE, SPEEDS), C0, 'o', '-', 'none (effort-minimising)'),
+              ((SP_TC, SPEEDS), CTC, 's', '-.', 'TR+C (without AM)'),
+              ((SP_TCA6, SPEEDS6), CT, 'D', '--', 'TR+C+AM')]
 
     def pts(cs, key):
-        return [(s_, M(c)[key]) for s_, c in zip(SPEEDS, cs) if c in d]
+        cs, sp = cs
+        return [(s_, M(c)[key]) for s_, c in zip(sp, cs) if c in d]
 
     def xfmt(ax):
         ax.set_xlabel(r'Walking speed (m s$^{-1}$)'); ax.set_xlim(0.2, 1.7)
@@ -492,8 +500,8 @@ def fig6():
     xfmt(ax)
     hB, lB = ax.get_legend_handles_labels()
     k = lB.index('Lamoth et al. (2002), mean ± s.d.')
-    fig.legend(hA + [hB[k]], lA + [lB[k]], loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.03),
-               columnspacing=1.2)
+    fig.legend(hA + [hB[k]], lA + [lB[k]], loc='upper center', ncol=5, bbox_to_anchor=(0.5, 1.03),
+               columnspacing=1.0)
     letter(ax, 'B')
     ax = fig.add_subplot(gs[1, 0])
     for cs, col, mk, ls, lab in series:
