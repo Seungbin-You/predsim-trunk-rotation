@@ -2,11 +2,11 @@
 Data figures for the J Exp Biol (Theory & Modelling) version of the manuscript.
 Fig. 1 (model / objective schematic) is drawn separately.
 
-Run from project root:   python analysis\\make_figures_jeb.py [output_dir]
-Output (default 'figures_jeb'):  fig2_overrotation, fig3_mechanism, fig4_constraints,
+Run from project root:   python analysis\\make_figures_paper.py [output_dir]
+Output (default 'figures'):  fig2_overrotation, fig3_mechanism, fig4_constraints,
                                   fig5_coordination, fig6_speed  (.pdf + .png)
 
-JEB style: Arial, 6-8 pt text, upper-case bold panel letters, colour-blind-safe
+Journal style: Arial, 6-8 pt text, upper-case bold panel letters, colour-blind-safe
 (Okabe-Ito) palette with redundant line style / marker, width <= 180 mm.
 Every simulated condition is a single deterministic optimum (N = 1).
 
@@ -35,7 +35,7 @@ from matplotlib.lines import Line2D
 
 RES = 'Results/optimaltrajectories.npy'
 EXP = 'OpenSimModel/Hamner_modified/experimentalData.npy'
-OUT = sys.argv[1] if len(sys.argv) > 1 else 'figures_jeb'
+OUT = sys.argv[1] if len(sys.argv) > 1 else 'figures'
 os.makedirs(OUT, exist_ok=True)
 d = np.load(RES, allow_pickle=True).item()
 E = np.load(EXP, allow_pickle=True).item()['Hamner_modified']

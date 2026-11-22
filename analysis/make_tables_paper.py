@@ -1,6 +1,6 @@
-"""Supplementary Tables S4 (additions) and S10-S13 of the JEB manuscript.
+"""Supplementary Tables S4 (additions) and S10-S13 of the manuscript.
 
-Usage (from the repository root):  python analysis/make_tables_jeb.py
+Usage (from the repository root):  python analysis/make_tables_paper.py
 Rows: case, condition, speed, stride time, stride length, pelvis/thorax/lumbar ROM,
 thorax-pelvis phase (first harmonic), peak stance free moment, COT, objective.
 Output: analysis/out/tables_S10_S13.tex, analysis/out/table_S4_additions.tex

@@ -32,7 +32,7 @@ def arrow(ax, p0, p1, col=INK, lw=1.0, ms=7, ls='-', z=3):
 
 
 def title(ax, s):
-    # JEB: bold upper-case panel letter, plain title
+    # bold upper-case panel letter, plain title
     letter, name = s.split(' ', 1)
     ax.text(0.0, 1.0, letter, transform=ax.transAxes, ha='left', va='bottom',
             fontsize=8, fontweight='bold', color=INK)
@@ -149,10 +149,10 @@ ax.text(0.85, -1.98, r'(about the COM: dH$_{G,y}$/dt)',
 # ── (c) objective ───────────────────────────────────────────────────────
 ax = fig.add_subplot(gs[2]); ax.axis('off'); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
 title(ax, 'C Objective and factors')
-rows = [('w$_1$ $\dot{E}$', 'metabolic rate', INK, ''),
+rows = [(r'w$_1$ $\dot{E}$', 'metabolic rate', INK, ''),
         ('w$_2$ a', 'activation', INK, ''),
-        ('w$_\mathrm{acc}$ $\ddot{q}$', 'joint acceleration', C_REF, 'varied'),
-        ('w$_4$ e$_\mathrm{arm}$', 'arm excitation', INK, ''),
+        (r'w$_\mathrm{acc}$ $\ddot{q}$', 'joint acceleration', C_REF, 'varied'),
+        (r'w$_4$ e$_\mathrm{arm}$', 'arm excitation', INK, ''),
         (r'w$_5$ $\tau_\mathrm{pass}$', 'passive torque', INK, ''),
         ('w$_6$ u', 'control derivatives', INK, ''),
         ('TR', r'hip rotation and subtalar springs', C_TR, ''),

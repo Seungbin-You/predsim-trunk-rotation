@@ -32,8 +32,8 @@ Bug fixes to the original code: bounds.py (pandas duplicate insert above 1.33 m 
 ## Figures and supplementary tables
 ```
 python analysis\make_fig1.py                 # Fig. 1 (needs figures/fig1a_model.png)
-python analysis\make_figures_jeb.py figures  # Figs 2-6, S1, S2
-python analysis\make_tables_jeb.py           # Tables S10-S13 and additions to Table S4 (analysis/out)
+python analysis\make_figures_paper.py figures  # Figs 2-6, S1, S2
+python analysis\make_tables_paper.py           # Tables S10-S13 and additions to Table S4 (analysis/out)
 ```
 `Results/optimaltrajectories.npy` contains every solution listed below, so figures and tables can be regenerated without re-running the simulations.
 
